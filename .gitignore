@@ -1,0 +1,36 @@
+# Tokens OAuth2 con credenciales sensibles del usuario (cualquier proveedor)
+token/
+token/*.json
+*_token.json
+
+# Credenciales de las apps registradas (Google Cloud, Azure AD, etc.)
+credentials.json
+credentials_google.json
+credentials_microsoft.json
+client_secret*.json
+
+# Datos locales con cuentas registradas (puede contener emails de usuarios)
+data/accounts.json
+
+# Binarios compilados de Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Archivos de prueba y cobertura
+*.test
+*.out
+
+# Carpeta de dependencias (no es estándar en Go modules pero por si acaso)
+vendor/
+
+# Archivos del editor / sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Configuración local de Claude Code (no se versiona)
+.claude/

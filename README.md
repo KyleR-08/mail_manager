@@ -1,16 +1,18 @@
 # correo-manager
 
-> Gestor de correo electrónico de consola en Go que se conecta a Gmail mediante OAuth2.
+> Gestor **multi-proveedor** de correo electrónico de consola en Go. Conecta Gmail, Outlook/Hotmail, correos institucionales y Yahoo desde una sola terminal.
 
-![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
 ![Gmail API](https://img.shields.io/badge/Gmail%20API-v1-EA4335?logo=gmail&logoColor=white)
-![OAuth2](https://img.shields.io/badge/OAuth2-Google-4285F4?logo=google&logoColor=white)
+![Microsoft Graph](https://img.shields.io/badge/Microsoft%20Graph-API-0078D4?logo=microsoft&logoColor=white)
+![OAuth2](https://img.shields.io/badge/OAuth2-Google%20%7C%20Microsoft-4285F4?logo=oauth&logoColor=white)
+![IMAP](https://img.shields.io/badge/IMAP-Yahoo%20fallback-720E9E?logo=yahoo&logoColor=white)
 
 ---
 
 ## Descripción
 
-**correo-manager** es una aplicación de consola escrita en Go que permite gestionar una cuenta de Gmail directamente desde la terminal, sin necesidad de abrir el navegador. La aplicación se autentica mediante OAuth2 contra la API oficial de Gmail y ofrece un menú numerado para ejecutar todas las acciones.
+**correo-manager** es una aplicación de consola escrita en Go que permite gestionar **varias cuentas de correo de distintos proveedores** desde la terminal, sin necesidad de abrir el navegador. Cada proveedor se integra mediante su API oficial (o IMAP cuando no existe API), pero la aplicación los expone a través de **una sola interfaz común**: `EmailProvider`.
 
 Este proyecto fue desarrollado como trabajo universitario para la materia de **Programación Orientada a Objetos** por:
 
@@ -18,47 +20,81 @@ Este proyecto fue desarrollado como trabajo universitario para la materia de **P
 - Ariel Esparza
 - Alejandro Zambrano
 
+Editor recomendado: **VS Code**.
+
+---
+
+## Proveedores soportados
+
+| Proveedor | Integración | Librerías clave |
+|---|---|---|
+| **Gmail** | Gmail API v1 + OAuth2 de Google | `google.golang.org/api/gmail/v1`, `golang.org/x/oauth2/google` |
+| **Outlook / Hotmail / Live** | Microsoft Graph API + OAuth2 | `golang.org/x/oauth2` con endpoints de Microsoft Identity Platform |
+| **Institucional** (`@uide.edu.ec` y similares) | Auto-detección por dominio | Workspace → Gmail API · Microsoft 365 → Graph API |
+| **Yahoo Mail** | IMAP (fallback) | `github.com/emersion/go-imap` |
+
 ---
 
 ## Funcionalidades
 
 1. **Inicio de sesión local** en la aplicación.
-2. **Conexión con Gmail vía OAuth2** (el token se guarda en `token/token.json`).
-3. **Ver bandeja de entrada** con remitente, asunto y fecha.
-4. **Leer un correo específico** seleccionado del listado.
-5. **Enviar un correo nuevo** desde la terminal.
-6. **Ver correos enviados** desde la cuenta.
-7. **Buscar correos** por palabra clave o remitente.
+2. **Registrar varias cuentas** (multi-proveedor) y elegir la cuenta activa.
+3. **Conexión OAuth2** con el proveedor de la cuenta seleccionada.
+4. **Ver bandeja de entrada** con remitente, asunto y fecha.
+5. **Leer un correo específico** seleccionado del listado.
+6. **Enviar un correo nuevo** desde la terminal.
+7. **Ver correos enviados** desde la cuenta activa.
+8. **Buscar correos** por palabra clave o remitente.
 
 ---
 
 ## Arquitectura
 
-El sistema sigue una **arquitectura en capas**, donde cada capa solo se comunica con las capas adyacentes:
+El sistema sigue una **arquitectura en capas con polimorfismo**. La UI nunca habla directamente con Gmail o Microsoft Graph; habla con la interfaz `EmailProvider`, y cada proveedor concreto la implementa a su manera.
 
 ```
-Usuario  →  Consola (UI)  →  Backend Go  →  Gmail API  →  Servidores de Google
+Usuario
+  ↓
+Console UI (ui/)
+  ↓
+Sesión activa (session/)
+  ↓
+EmailProvider — interfaz (providers/)
+  ↓
+gmail.go · outlook.go · yahoo.go · institutional.go
+  ↓
+Auth OAuth2 (auth/)  +  Cuentas registradas (accounts/ + data/accounts.json)
+  ↓
+APIs externas (Gmail API · Microsoft Graph · IMAP de Yahoo)
 ```
 
-- **Consola (UI):** muestra el menú y captura las opciones del usuario.
-- **Backend Go:** contiene los handlers y servicios que aplican la lógica.
-- **Gmail API:** capa externa con la que se comunica el servicio de Gmail.
-- **Servidores de Google:** infraestructura que aloja los correos.
+### `EmailProvider` — el contrato común
 
-Esta separación garantiza que ninguna capa mezcle responsabilidades de otra.
+Definido en [`providers/provider.go`](providers/provider.go):
+
+```go
+GetInbox()
+ReadMail(id string)
+SendMail(to, subject, body string)
+GetSent()
+SearchMail(query string)
+```
+
+Cada implementación concreta traduce estos métodos a llamadas reales contra su API. Esta separación garantiza que la UI no dependa del proveedor.
 
 ---
 
 ## Tecnologías utilizadas
 
 - **Lenguaje:** Go (Golang)
-- **API:** Gmail API v1
-- **Autenticación:** OAuth2 de Google
+- **APIs:** Gmail API v1, Microsoft Graph API, IMAP (fallback Yahoo)
+- **Autenticación:** OAuth2 (Google y Microsoft Identity Platform)
 - **Paquetes principales:**
-  - `golang.org/x/oauth2`
-  - `golang.org/x/oauth2/google`
+  - `golang.org/x/oauth2`, `golang.org/x/oauth2/google`, `golang.org/x/oauth2/microsoft`
   - `google.golang.org/api/gmail/v1`
-  - `net/http`, `fmt`, `bufio`, `os`, `encoding/json` (librería estándar)
+  - `net/http` (para llamadas REST a Microsoft Graph)
+  - `github.com/emersion/go-imap` (Yahoo)
+  - Estándar: `fmt`, `bufio`, `os`, `encoding/json`, `strings`, `errors`
 
 ---
 
@@ -70,11 +106,10 @@ Esta separación garantiza que ninguna capa mezcle responsabilidades de otra.
    cd mail_manager
    ```
 
-2. **Obtener las credenciales de Google:**
-   - Entra a [Google Cloud Console](https://console.cloud.google.com/).
-   - Crea un proyecto y habilita la **Gmail API**.
-   - Genera credenciales de tipo *OAuth client ID* (aplicación de escritorio).
-   - Descarga el archivo y guárdalo como `credentials.json` en la raíz del proyecto.
+2. **Obtener las credenciales OAuth2:**
+   - **Google (Gmail / Workspace):** crea un proyecto en [Google Cloud Console](https://console.cloud.google.com/), habilita **Gmail API**, genera un *OAuth client ID* tipo Aplicación de escritorio y guarda el JSON como `credentials_google.json`.
+   - **Microsoft (Outlook / Hotmail / M365):** registra una app en [Azure Portal](https://portal.azure.com/) → Microsoft Entra ID → App registrations, agrega los permisos `Mail.Read` y `Mail.Send` de Microsoft Graph y guarda el client ID/secret como `credentials_microsoft.json`.
+   - **Yahoo:** genera una contraseña de aplicación desde la configuración de seguridad de tu cuenta Yahoo.
 
 3. **Instalar dependencias:**
    ```bash
@@ -86,7 +121,7 @@ Esta separación garantiza que ninguna capa mezcle responsabilidades de otra.
    go run main.go
    ```
 
-   La primera vez se abrirá el flujo OAuth2 para autorizar el acceso a la cuenta. El token resultante se guardará automáticamente en `token/token.json` para próximas ejecuciones.
+   La primera vez se abrirá el flujo OAuth2 del proveedor de la cuenta que registres. El token resultante se guarda en `token/` y la cuenta queda registrada en `data/accounts.json`.
 
 ---
 
@@ -94,28 +129,36 @@ Esta separación garantiza que ninguna capa mezcle responsabilidades de otra.
 
 ```
 mail_manager/
-├── main.go                      # Punto de entrada de la aplicación
-├── handlers/
-│   ├── auth.go                  # Coordina el login local y el flujo OAuth2
-│   ├── gmail.go                 # Recibe peticiones de la UI y llama al servicio
-│   └── email.go                 # Manejo de envío y composición de correos
-├── services/
-│   └── gmail_service.go         # Única capa que habla directamente con la Gmail API
+├── main.go                          # Punto de entrada
+├── providers/
+│   ├── provider.go                  # Interfaz EmailProvider (contrato común)
+│   ├── gmail.go                     # Implementación Gmail (Gmail API v1)
+│   ├── outlook.go                   # Implementación Outlook (Microsoft Graph)
+│   ├── yahoo.go                     # Implementación Yahoo (IMAP fallback)
+│   └── institutional.go             # Auto-detección por dominio
+├── accounts/
+│   ├── account.go                   # Modelo de una cuenta registrada
+│   └── manager.go                   # Cargar / guardar / listar / agregar cuentas
+├── session/
+│   └── session.go                   # Cuenta y proveedor activos en memoria
 ├── auth/
-│   └── oauth_config.go          # Configuración de OAuth2 (scopes, client, token)
+│   ├── google_auth.go               # OAuth2 contra Google
+│   └── microsoft_auth.go            # OAuth2 contra Microsoft Identity Platform
 ├── ui/
-│   └── menu.go                  # Menú de consola y captura de opciones del usuario
-└── token/
-    └── token.json               # Token OAuth2 generado tras autenticarse (ignorado por git)
+│   └── menu.go                      # Menú numerado de consola
+├── data/
+│   └── accounts.json                # Cuentas registradas (ignorado por git)
+└── token/                           # Tokens OAuth2 por cuenta (ignorado por git)
 ```
 
 ---
 
 ## Estado del proyecto
 
-- ✅ **Etapa 1 — Planeación:** completada (arquitectura, estructura, esqueleto de archivos).
-- 🚧 **Etapa 2 — Implementación:** en progreso (OAuth2, menú y operaciones contra Gmail).
+- ✅ **Etapa 1 — Planeación inicial (solo Gmail):** completada y reemplazada.
+- ✅ **Etapa 2 — Refactor a arquitectura multi-proveedor:** completada (esqueleto listo, sin lógica todavía).
+- 🚧 **Etapa 3 — Implementación:** en progreso (interfaz, OAuth2 de Google, primer proveedor concreto).
 
 ---
 
-> **Nota de seguridad:** los archivos `credentials.json` y `token/token.json` contienen información sensible y **están excluidos del repositorio** mediante `.gitignore`. Cada usuario debe generar los suyos de forma local.
+> **Nota de seguridad:** los archivos `credentials_google.json`, `credentials_microsoft.json`, todo `token/` y `data/accounts.json` contienen información sensible y **están excluidos del repositorio** mediante `.gitignore`. Cada usuario debe generar los suyos de forma local.
