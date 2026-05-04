@@ -34,3 +34,6 @@ Thumbs.db
 
 # Configuración local de Claude Code (no se versiona)
 .claude/
+
+# Contexto local de Claude (uso interno, no se sube al repo)
+CLAUDE.md
