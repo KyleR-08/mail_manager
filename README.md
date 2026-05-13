@@ -155,9 +155,9 @@ mail_manager/
 
 ## Estado del proyecto
 
-- ✅ **Etapa 1 — Planeación inicial (solo Gmail):** completada y reemplazada.
-- ✅ **Etapa 2 — Refactor a arquitectura multi-proveedor:** completada (esqueleto listo, sin lógica todavía).
-- 🚧 **Etapa 3 — Implementación:** en progreso (interfaz, OAuth2 de Google, primer proveedor concreto).
+-  **Etapa 1 — Planeación inicial (solo Gmail):** completada y reemplazada.
+-  **Etapa 2 — Refactor a arquitectura multi-proveedor:** completada (esqueleto listo, sin lógica todavía).
+-  **Etapa 3 — Implementación:** en progreso (interfaz, OAuth2 de Google, primer proveedor concreto).
 
 ---
 
