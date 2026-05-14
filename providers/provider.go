@@ -1,5 +1,5 @@
 // Define la interfaz EmailProvider que abstrae cualquier proveedor de correo.
-// Es el contrato común que implementan Gmail, Outlook, Yahoo e Institucional.
+// Es el contrato común que implementan Gmail, Outlook y Yahoo.
 // Gracias a esta interfaz se aplica polimorfismo: la UI llama métodos
 // (GetInbox, ReadMail, SendMail, GetSent, SearchMail) sin saber qué
 // proveedor concreto está detrás.
@@ -17,7 +17,7 @@ type Mail struct {
 }
 
 // EmailProvider es el contrato que todos los proveedores deben cumplir.
-// Cada proveedor (Gmail, Outlook, Yahoo, Institucional) implementa estos
+// Cada proveedor (Gmail, Outlook, Yahoo) implementa estos
 // métodos a su manera, pero la UI solo conoce esta interfaz.
 type EmailProvider interface {
 	// GetInbox devuelve la lista de correos de la bandeja de entrada.

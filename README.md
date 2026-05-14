@@ -1,6 +1,6 @@
 # correo-manager
 
-> Gestor **multi-proveedor** de correo electrónico de consola en Go. Conecta Gmail, Outlook/Hotmail, correos institucionales y Yahoo desde una sola terminal.
+> Gestor **multi-proveedor** de correo electrónico de consola en Go. Conecta Gmail, Outlook/Hotmail y Yahoo desde una sola terminal.
 
 ![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)
 ![Gmail API](https://img.shields.io/badge/Gmail%20API-v1-EA4335?logo=gmail&logoColor=white)
@@ -30,7 +30,6 @@ Editor recomendado: **VS Code**.
 |---|---|---|
 | **Gmail** | Gmail API v1 + OAuth2 de Google | `google.golang.org/api/gmail/v1`, `golang.org/x/oauth2/google` |
 | **Outlook / Hotmail / Live** | Microsoft Graph API + OAuth2 | `golang.org/x/oauth2` con endpoints de Microsoft Identity Platform |
-| **Institucional** (`@uide.edu.ec` y similares) | Auto-detección por dominio | Workspace → Gmail API · Microsoft 365 → Graph API |
 | **Yahoo Mail** | IMAP (fallback) | `github.com/emersion/go-imap` |
 
 ---
@@ -61,7 +60,7 @@ Sesión activa (session/)
   ↓
 EmailProvider — interfaz (providers/)
   ↓
-gmail.go · outlook.go · yahoo.go · institutional.go
+gmail.go · outlook.go · yahoo.go
   ↓
 Auth OAuth2 (auth/)  +  Cuentas registradas (accounts/ + data/accounts.json)
   ↓
@@ -134,8 +133,7 @@ mail_manager/
 │   ├── provider.go                  # Interfaz EmailProvider (contrato común)
 │   ├── gmail.go                     # Implementación Gmail (Gmail API v1)
 │   ├── outlook.go                   # Implementación Outlook (Microsoft Graph)
-│   ├── yahoo.go                     # Implementación Yahoo (IMAP fallback)
-│   └── institutional.go             # Auto-detección por dominio
+│   └── yahoo.go                     # Implementación Yahoo (IMAP fallback)
 ├── accounts/
 │   ├── account.go                   # Modelo de una cuenta registrada
 │   └── manager.go                   # Cargar / guardar / listar / agregar cuentas
