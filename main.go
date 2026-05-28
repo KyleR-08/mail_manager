@@ -38,23 +38,19 @@ const uideClientSecret = "TU_CLIENT_SECRET_AQUI"
 const uideTenantID = "TU_TENANT_ID_UIDE_AQUI"
 
 // resolveCredentialsPath devuelve la ruta absoluta a credentials.json a
-// partir del directorio donde está el ejecutable. Esto evita el problema
-// de que la ruta relativa "credentials.json" se resuelva contra el
-// directorio de trabajo (que cambia según desde dónde se lance la app).
+// partir del directorio de trabajo actual (donde se lanzó la app).
+// Esto funciona bien con `go run` porque os.Getwd() devuelve la carpeta
+// desde la que se ejecutó el comando — que es donde vive credentials.json.
 func resolveCredentialsPath() string {
-	// Obtener la ruta absoluta del ejecutable que está corriendo
-	rutaExe, err := os.Executable()
+	// Obtener el directorio de trabajo actual
+	dir, err := os.Getwd()
 	if err != nil {
-		// Si por alguna razón falla, caer al nombre relativo como respaldo
-		fmt.Println("No se pudo obtener la ruta del ejecutable, usando nombre relativo:", err)
-		return gmailCredentialsFile
+		// Si falla, caer al nombre relativo como respaldo
+		return "credentials.json"
 	}
 
-	// El directorio que contiene el ejecutable
-	dirExe := filepath.Dir(rutaExe)
-
-	// Unir el directorio del ejecutable con el nombre del archivo de credenciales
-	return filepath.Join(dirExe, gmailCredentialsFile)
+	// Unir el directorio actual con el nombre del archivo de credenciales
+	return filepath.Join(dir, "credentials.json")
 }
 
 // detectProvider devuelve el tipo de proveedor según el dominio del email.
