@@ -12,12 +12,17 @@ client_secret*.json
 # Datos locales con cuentas registradas (puede contener emails de usuarios)
 data/accounts.json
 
+# Notas y configuración local de Claude (no se suben al repo)
+CLAUDE.md
+.claude/
+
 # Binarios compilados de Go
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+mail_manager
 
 # Archivos de prueba y cobertura
 *.test
@@ -31,5 +36,3 @@ vendor/
 .idea/
 .DS_Store
 Thumbs.db
-
-

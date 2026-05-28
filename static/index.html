@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>correo-manager</title>
+  <style>
+    /* Estilos simples y limpios sin frameworks */
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+    header {
+      background: #1e3a8a;
+      color: #fff;
+      padding: 16px 24px;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    main {
+      max-width: 960px;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: grid;
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 16px; color: #111827; }
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: 0;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 4px 4px 4px 0;
+    }
+    button:hover { background: #1d4ed8; }
+    button.secondary { background: #6b7280; }
+    button.secondary:hover { background: #4b5563; }
+    button.gmail { background: #dc2626; }
+    button.gmail:hover { background: #b91c1c; }
+    button.ms { background: #0078d4; }
+    button.ms:hover { background: #106ebe; }
+    input, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      margin: 4px 0 10px;
+      font-family: inherit;
+    }
+    label { font-size: 13px; color: #374151; font-weight: 600; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .accounts-list { list-style: none; padding: 0; margin: 0; }
+    .accounts-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .accounts-list li:last-child { border: 0; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      color: #374151;
+      margin-left: 6px;
+    }
+    .badge.active { background: #10b981; color: #fff; }
+    .mail-list { list-style: none; padding: 0; margin: 0; }
+    .mail-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .mail-from { font-weight: 600; }
+    .mail-subject { color: #111827; }
+    .mail-date { color: #6b7280; font-size: 12px; }
+    .mail-body { color: #4b5563; font-size: 13px; margin-top: 4px; }
+    .hidden { display: none; }
+    #status {
+      padding: 8px 12px;
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    #status.ok { background: #d1fae5; border-color: #10b981; }
+    #status.err { background: #fee2e2; border-color: #ef4444; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>correo-manager</h1>
+  </header>
+
+  <main>
+    <!-- Barra de estado para mostrar mensajes al usuario -->
+    <div id="status" class="hidden"></div>
+
+    <!-- Cuenta activa -->
+    <section class="card">
+      <h2>Cuenta activa</h2>
+      <div id="activeAccount">Cargando...</div>
+      <div class="row" style="margin-top: 8px;">
+        <button class="gmail" onclick="connectGoogle()">Conectar Gmail</button>
+        <button class="ms" onclick="connectMicrosoft()">Conectar Outlook / UIDE</button>
+      </div>
+    </section>
+
+    <!-- Cuentas registradas -->
+    <section class="card">
+      <h2>Cuentas registradas</h2>
+      <ul id="accountsList" class="accounts-list"></ul>
+      <button onclick="toggleAddForm()">+ Agregar cuenta</button>
+
+      <div id="addForm" class="hidden" style="margin-top: 12px;">
+        <label>Email</label>
+        <input id="newEmail" type="email" placeholder="usuario@gmail.com" />
+        <label>Nombre para mostrar</label>
+        <input id="newName" type="text" placeholder="Tu nombre" />
+        <button onclick="addAccount()">Guardar</button>
+        <button class="secondary" onclick="toggleAddForm()">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- Bandeja de entrada -->
+    <section class="card">
+      <h2>Bandeja de entrada</h2>
+      <button onclick="loadInbox()">Ver bandeja</button>
+      <button class="secondary" onclick="loadSent()">Ver enviados</button>
+      <ul id="mailList" class="mail-list" style="margin-top: 10px;"></ul>
+    </section>
+
+    <!-- Buscar correos -->
+    <section class="card">
+      <h2>Buscar correos</h2>
+      <div class="row">
+        <input id="searchQuery" type="text" placeholder="Escribe lo que buscas..." style="flex: 1;" />
+        <button onclick="searchMail()">Buscar</button>
+      </div>
+      <ul id="searchList" class="mail-list" style="margin-top: 10px;"></ul>
+    </section>
+
+    <!-- Enviar correo -->
+    <section class="card">
+      <h2>Enviar correo</h2>
+      <label>Para</label>
+      <input id="sendTo" type="email" placeholder="destinatario@ejemplo.com" />
+      <label>Asunto</label>
+      <input id="sendSubject" type="text" placeholder="Asunto del correo" />
+      <label>Mensaje</label>
+      <textarea id="sendBody" rows="5" placeholder="Escribe tu mensaje aquí..."></textarea>
+      <button onclick="sendMail()">Enviar</button>
+    </section>
+  </main>
+
+  <script>
+    // Mostrar un mensaje en la barra de estado
+    function showStatus(message, type) {
+      const el = document.getElementById("status");
+      el.textContent = message;
+      el.className = type || "";
+      el.classList.remove("hidden");
+      // Ocultar automáticamente después de 5 segundos
+      setTimeout(() => el.classList.add("hidden"), 5000);
+    }
+
+    // Cargar la lista de cuentas y la cuenta activa
+    async function loadAccounts() {
+      try {
+        const res = await fetch("/accounts");
+        const data = await res.json();
+        const lista = document.getElementById("accountsList");
+        lista.innerHTML = "";
+        // Renderizar cada cuenta con botón para activarla
+        (data.accounts || []).forEach((cuenta) => {
+          const li = document.createElement("li");
+          const esActiva = data.active === cuenta.email;
+          li.innerHTML = `
+            <div>
+              <strong>${cuenta.display_name || cuenta.email}</strong>
+              <span class="badge">${cuenta.provider_type}</span>
+              ${esActiva ? '<span class="badge active">activa</span>' : ""}
+              <div style="font-size:12px;color:#6b7280;">${cuenta.email}</div>
+            </div>
+            <button class="secondary" onclick="activateAccount('${cuenta.email}')">Activar</button>
+          `;
+          lista.appendChild(li);
+        });
+        // Mostrar la cuenta activa
+        const activeBox = document.getElementById("activeAccount");
+        if (data.active) {
+          activeBox.textContent = data.active;
+        } else {
+          activeBox.textContent = "Ninguna cuenta seleccionada";
+        }
+      } catch (err) {
+        showStatus("No se pudo cargar la lista de cuentas", "err");
+      }
+    }
+
+    // Mostrar / ocultar el formulario de agregar cuenta
+    function toggleAddForm() {
+      document.getElementById("addForm").classList.toggle("hidden");
+    }
+
+    // Agregar una cuenta nueva enviando JSON al servidor
+    async function addAccount() {
+      const email = document.getElementById("newEmail").value.trim();
+      const display_name = document.getElementById("newName").value.trim();
+      if (!email) {
+        showStatus("El email es obligatorio", "err");
+        return;
+      }
+      try {
+        const res = await fetch("/accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, display_name }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "Error al guardar la cuenta", "err");
+          return;
+        }
+        showStatus("Cuenta agregada", "ok");
+        document.getElementById("newEmail").value = "";
+        document.getElementById("newName").value = "";
+        toggleAddForm();
+        loadAccounts();
+      } catch (err) {
+        showStatus("Fallo al guardar la cuenta", "err");
+      }
+    }
+
+    // Activar la cuenta indicada
+    async function activateAccount(email) {
+      try {
+        const res = await fetch(`/accounts/${encodeURIComponent(email)}/activate`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "No se pudo activar", "err");
+          return;
+        }
+        if (data.warning) {
+          showStatus("Activada con aviso: " + data.warning, "");
+        } else if (data.provider_ready) {
+          showStatus("Cuenta activa y lista", "ok");
+        } else {
+          showStatus("Cuenta activa, pero falta OAuth2", "");
+        }
+        loadAccounts();
+      } catch (err) {
+        showStatus("Error al activar la cuenta", "err");
+      }
+    }
+
+    // Iniciar OAuth2 con Google (redirige al navegador)
+    function connectGoogle() {
+      window.location.href = "/auth/google/start";
+    }
+
+    // Iniciar OAuth2 con Microsoft (redirige al navegador)
+    function connectMicrosoft() {
+      window.location.href = "/auth/microsoft/start";
+    }
+
+    // Convertir un correo del backend en un <li> para mostrar
+    function correoToLi(correo) {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <div class="mail-from">${correo.From || correo.from || ""}</div>
+        <div class="mail-subject">${correo.Subject || correo.subject || "(sin asunto)"}</div>
+        <div class="mail-date">${correo.Date || correo.date || ""}</div>
+        <div class="mail-body">${correo.Body || correo.body || ""}</div>
+      `;
+      return li;
+    }
+
+    // Cargar la bandeja de entrada
+    async function loadInbox() {
+      try {
+        const res = await fetch("/inbox");
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "Error al cargar la bandeja", "err");
+          return;
+        }
+        const lista = document.getElementById("mailList");
+        lista.innerHTML = "";
+        (data || []).forEach((m) => lista.appendChild(correoToLi(m)));
+        if ((data || []).length === 0) {
+          showStatus("Bandeja vacía", "");
+        }
+      } catch (err) {
+        showStatus("No se pudo cargar la bandeja", "err");
+      }
+    }
+
+    // Cargar los correos enviados
+    async function loadSent() {
+      try {
+        const res = await fetch("/sent");
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "Error al cargar enviados", "err");
+          return;
+        }
+        const lista = document.getElementById("mailList");
+        lista.innerHTML = "";
+        (data || []).forEach((m) => lista.appendChild(correoToLi(m)));
+      } catch (err) {
+        showStatus("No se pudo cargar los enviados", "err");
+      }
+    }
+
+    // Buscar correos según el texto ingresado
+    async function searchMail() {
+      const q = document.getElementById("searchQuery").value.trim();
+      if (!q) {
+        showStatus("Escribe algo a buscar", "err");
+        return;
+      }
+      try {
+        const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "Error en la búsqueda", "err");
+          return;
+        }
+        const lista = document.getElementById("searchList");
+        lista.innerHTML = "";
+        (data || []).forEach((m) => lista.appendChild(correoToLi(m)));
+        if ((data || []).length === 0) {
+          showStatus("Sin resultados", "");
+        }
+      } catch (err) {
+        showStatus("Error al buscar", "err");
+      }
+    }
+
+    // Enviar un correo nuevo desde el formulario
+    async function sendMail() {
+      const to = document.getElementById("sendTo").value.trim();
+      const subject = document.getElementById("sendSubject").value.trim();
+      const body = document.getElementById("sendBody").value;
+      if (!to || !subject) {
+        showStatus("Destinatario y asunto son obligatorios", "err");
+        return;
+      }
+      try {
+        const res = await fetch("/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, subject, body }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.error || "Error al enviar", "err");
+          return;
+        }
+        showStatus("Correo enviado", "ok");
+        document.getElementById("sendTo").value = "";
+        document.getElementById("sendSubject").value = "";
+        document.getElementById("sendBody").value = "";
+      } catch (err) {
+        showStatus("No se pudo enviar el correo", "err");
+      }
+    }
+
+    // Al cargar la página, traer las cuentas
+    loadAccounts();
+  </script>
+</body>
+</html>

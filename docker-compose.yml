@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  mail-service:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./token:/app/token
+      - ./credentials.json:/app/credentials.json
+    environment:
+      - GIN_MODE=release
