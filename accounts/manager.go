@@ -14,16 +14,39 @@ import (
 const accountsFile = "data/accounts.json"
 
 // LoadAccounts lee data/accounts.json y devuelve la lista de cuentas.
-// Si hay un error (por ejemplo el archivo no existe) se imprime y se
-// devuelve una lista vacía.
+// Si el archivo no existe, lo crea vacío ("[]") y devuelve una lista vacía.
+// Si hay otro error (JSON inválido, permiso, etc.) se imprime el error.
 func LoadAccounts() []Account {
 	// Lista vacía por defecto, se devuelve si algo falla
 	var listaCuentas []Account
+
+	// Asegurar que la carpeta data/ exista antes de leer o crear el archivo
+	err := os.MkdirAll("data", 0755)
+	if err != nil {
+		fmt.Println("No se pudo crear la carpeta data/:", err)
+		return listaCuentas
+	}
+
+	// Si el archivo no existe, crearlo con una lista vacía y salir
+	_, err = os.Stat(accountsFile)
+	if os.IsNotExist(err) {
+		fmt.Println("No existe", accountsFile, "- creando uno nuevo vacío.")
+		err = os.WriteFile(accountsFile, []byte("[]"), 0644)
+		if err != nil {
+			fmt.Println("No se pudo crear el archivo de cuentas:", err)
+		}
+		return listaCuentas
+	}
 
 	// Leer todo el contenido del archivo accounts.json
 	data, err := os.ReadFile(accountsFile)
 	if err != nil {
 		fmt.Println("No se pudo leer el archivo de cuentas:", err)
+		return listaCuentas
+	}
+
+	// Si el archivo está vacío, devolver lista vacía sin error
+	if len(data) == 0 {
 		return listaCuentas
 	}
 
@@ -41,6 +64,13 @@ func LoadAccounts() []Account {
 // SaveAccounts recibe una lista de cuentas y la guarda en data/accounts.json.
 // Si hay un error se imprime con fmt.
 func SaveAccounts(listaCuentas []Account) {
+	// Asegurar que la carpeta data/ exista antes de escribir
+	err := os.MkdirAll("data", 0755)
+	if err != nil {
+		fmt.Println("No se pudo crear la carpeta data/:", err)
+		return
+	}
+
 	// Convertir la lista de cuentas a JSON con indentación bonita
 	data, err := json.MarshalIndent(listaCuentas, "", "  ")
 	if err != nil {

@@ -13,7 +13,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"mail_manager/accounts"
@@ -21,6 +20,20 @@ import (
 	"mail_manager/providers"
 	"mail_manager/ui"
 )
+
+// Constantes de credenciales de la app para cada proveedor.
+// Solo Gmail tiene credenciales reales (descargadas de Google Cloud Console).
+// Las credenciales de Microsoft (Outlook e institucional UIDE) son
+// PLACEHOLDERS porque registrar una app en Azure AD requiere permisos de
+// administrador del tenant, que aún no tenemos. Cuando se registren las
+// apps reales, basta con reemplazar el valor de estas constantes.
+const gmailCredentialsFile = "credentials.json"
+const outlookClientID = "TU_CLIENT_ID_AQUI"
+const outlookClientSecret = "TU_CLIENT_SECRET_AQUI"
+const outlookTenantID = "consumers"
+const uideClientID = "TU_CLIENT_ID_AQUI"
+const uideClientSecret = "TU_CLIENT_SECRET_AQUI"
+const uideTenantID = "TU_TENANT_ID_UIDE_AQUI"
 
 // detectProvider devuelve el tipo de proveedor según el dominio del email.
 // Reglas simples: @gmail.com -> gmail, @hotmail/@outlook -> outlook,
@@ -86,9 +99,9 @@ func agregarCuenta(listaCuentas []accounts.Account) ([]accounts.Account, account
 func buildProvider(cuenta accounts.Account) (providers.EmailProvider, error) {
 	// Caso Gmail: usar Google OAuth2 + GmailProvider
 	if cuenta.ProviderType == "gmail" {
-		// Configurar la autenticación de Google
+		// Configurar la autenticación de Google con credentials.json real
 		cfg := auth.GoogleAuthConfig{
-			CredentialsFile: "credentials.json",
+			CredentialsFile: gmailCredentialsFile,
 			TokenFile:       cuenta.TokenFile,
 		}
 
@@ -104,11 +117,11 @@ func buildProvider(cuenta accounts.Account) (providers.EmailProvider, error) {
 
 	// Caso Outlook: usar Microsoft OAuth2 con tenant "consumers"
 	if cuenta.ProviderType == "outlook" {
-		// Leer credenciales de la app desde variables de entorno
+		// Usar las constantes definidas arriba (placeholders por ahora)
 		cfg := auth.MicrosoftAuthConfig{
-			ClientID:     os.Getenv("MS_CLIENT_ID"),
-			ClientSecret: os.Getenv("MS_CLIENT_SECRET"),
-			TenantID:     "consumers",
+			ClientID:     outlookClientID,
+			ClientSecret: outlookClientSecret,
+			TenantID:     outlookTenantID,
 			TokenFile:    cuenta.TokenFile,
 		}
 
@@ -124,18 +137,11 @@ func buildProvider(cuenta accounts.Account) (providers.EmailProvider, error) {
 
 	// Caso Institucional: mismo flujo que Outlook pero con tenant UIDE
 	if cuenta.ProviderType == "institutional" {
-		// Tenant institucional configurable por variable de entorno
-		tenant := os.Getenv("UIDE_TENANT_ID")
-		if tenant == "" {
-			// Si no está definido, se intenta usar "organizations" como genérico
-			tenant = "organizations"
-		}
-
-		// Configurar la autenticación contra el tenant institucional
+		// Usar las constantes UIDE definidas arriba (placeholders por ahora)
 		cfg := auth.MicrosoftAuthConfig{
-			ClientID:     os.Getenv("MS_CLIENT_ID"),
-			ClientSecret: os.Getenv("MS_CLIENT_SECRET"),
-			TenantID:     tenant,
+			ClientID:     uideClientID,
+			ClientSecret: uideClientSecret,
+			TenantID:     uideTenantID,
 			TokenFile:    cuenta.TokenFile,
 		}
 
@@ -154,31 +160,39 @@ func buildProvider(cuenta accounts.Account) (providers.EmailProvider, error) {
 }
 
 // getMicrosoftClientSafe envuelve auth.GetMicrosoftClient con validación
-// previa de las credenciales requeridas en variables de entorno.
+// previa: si las constantes siguen siendo placeholders (no se han registrado
+// todavía las apps en Azure AD) devolvemos un error claro en vez de intentar
+// el flujo OAuth2 con datos inválidos.
 func getMicrosoftClientSafe(cfg auth.MicrosoftAuthConfig) (*http.Client, error) {
-	// Verificar que el ClientID y el ClientSecret estén configurados
-	if cfg.ClientID == "" || cfg.ClientSecret == "" {
-		return nil, fmt.Errorf("faltan variables MS_CLIENT_ID o MS_CLIENT_SECRET")
+	// Si el ClientID o ClientSecret están vacíos o aún son el placeholder
+	if cfg.ClientID == "" || cfg.ClientSecret == "" ||
+		strings.HasPrefix(cfg.ClientID, "TU_") || strings.HasPrefix(cfg.ClientSecret, "TU_") {
+		return nil, fmt.Errorf("las credenciales de Microsoft son placeholders: registra la app en Azure AD y reemplaza las constantes en main.go")
+	}
+
+	// Si el tenant aún es el placeholder, también es inválido
+	if strings.HasPrefix(cfg.TenantID, "TU_") {
+		return nil, fmt.Errorf("el TenantID de Microsoft es un placeholder: reemplaza la constante en main.go")
 	}
 	return auth.GetMicrosoftClient(cfg)
 }
 
-// mostrarCorreos imprime una lista de correos numerada en consola.
-func mostrarCorreos(correos []providers.Mail) {
-	// Si no hay correos, avisar al usuario
-	if len(correos) == 0 {
-		fmt.Println("No hay correos para mostrar.")
-		return
+// elegirCuenta muestra la lista de cuentas y pide al usuario que escoja una.
+// Devuelve la cuenta seleccionada. Si solo hay una, la devuelve directamente.
+func elegirCuenta(listaCuentas []accounts.Account) accounts.Account {
+	// Si solo hay una cuenta, no preguntar nada
+	if len(listaCuentas) == 1 {
+		return listaCuentas[0]
 	}
 
-	// Imprimir cada correo con un índice
-	for i := 0; i < len(correos); i++ {
-		c := correos[i]
-		fmt.Printf("[%d] %s\n", i+1, c.Subject)
-		fmt.Printf("    De: %s\n", c.From)
-		fmt.Printf("    Fecha: %s\n", c.Date)
-		fmt.Printf("    Id: %s\n", c.Id)
-	}
+	// Mostrar todas las cuentas registradas numeradas
+	ui.ShowAccountList(listaCuentas)
+
+	// Pedir al usuario que escoja una entre 1 y N
+	indice := ui.GetUserChoice("Elige el número de cuenta a usar: ", 1, len(listaCuentas))
+
+	// Devolver la cuenta correspondiente (el menú usa 1-based, slice usa 0-based)
+	return listaCuentas[indice-1]
 }
 
 func main() {
@@ -202,8 +216,8 @@ func main() {
 		}
 	}
 
-	// Usar la primera cuenta como cuenta activa
-	cuentaActiva := listaCuentas[0]
+	// Pedir al usuario que elija la cuenta activa (si solo hay una se usa esa)
+	cuentaActiva := elegirCuenta(listaCuentas)
 	fmt.Println("Cuenta activa:", cuentaActiva.Email)
 
 	// Construir el proveedor concreto detrás de la interfaz EmailProvider.
@@ -234,7 +248,7 @@ func main() {
 				fmt.Println("Error al obtener la bandeja de entrada:", err)
 				continue
 			}
-			mostrarCorreos(correos)
+			ui.ShowInbox(correos)
 			continue
 		}
 
@@ -250,13 +264,7 @@ func main() {
 				fmt.Println("Error al leer el correo:", err)
 				continue
 			}
-			fmt.Println("--- Correo ---")
-			fmt.Println("De:     ", correo.From)
-			fmt.Println("Para:   ", correo.To)
-			fmt.Println("Fecha:  ", correo.Date)
-			fmt.Println("Asunto: ", correo.Subject)
-			fmt.Println("")
-			fmt.Println(correo.Body)
+			ui.ShowMail(correo)
 			continue
 		}
 
@@ -289,7 +297,7 @@ func main() {
 				fmt.Println("Error al obtener enviados:", err)
 				continue
 			}
-			mostrarCorreos(correos)
+			ui.ShowSent(correos)
 			continue
 		}
 
@@ -305,7 +313,7 @@ func main() {
 				fmt.Println("Error al buscar:", err)
 				continue
 			}
-			mostrarCorreos(correos)
+			ui.ShowInbox(correos)
 			continue
 		}
 
