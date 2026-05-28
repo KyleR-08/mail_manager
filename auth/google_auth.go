@@ -5,10 +5,12 @@
 package auth
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -84,21 +86,35 @@ func GetGoogleClient(cfg GoogleAuthConfig) (*http.Client, error) {
 }
 
 // GetGoogleTokenFromWeb realiza el flujo OAuth2 interactivo: imprime la
-// URL en consola, espera a que el usuario inicie sesión y pegue el código
-// de autorización, y lo intercambia por un token de acceso.
+// URL en consola, espera a que el usuario inicie sesión, copie SOLO el
+// valor del parámetro "code" de la URL de redirección y lo pegue acá;
+// luego intercambia ese código por un token de acceso real.
 func GetGoogleTokenFromWeb(oauthConfig *oauth2.Config) (*oauth2.Token, error) {
 	// Generar la URL de autorización con AccessType=offline para tener refresh token
 	authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Println("")
 	fmt.Println("Abre la siguiente URL en tu navegador e inicia sesión con Google:")
 	fmt.Println(authURL)
-	fmt.Print("Pega aquí el código de autorización: ")
+	fmt.Println("")
+	fmt.Println("Después del login serás redirigido a una URL tipo:")
+	fmt.Println("  http://localhost/?state=state-token&code=4/0ABC123&scope=...")
+	fmt.Println("")
+	fmt.Print("Pega aquí SOLO el código de autorización (el valor después de 'code=' en la URL): ")
 
-	// Leer el código que el usuario pega en la consola
-	var codigo string
-	_, err := fmt.Scan(&codigo)
+	// Leer toda la línea pegada por el usuario para soportar códigos largos con
+	// caracteres especiales (las URL OAuth2 traen "/", "-", "_", etc.).
+	lector := bufio.NewReader(os.Stdin)
+	codigo, err := lector.ReadString('\n')
 	if err != nil {
 		return nil, fmt.Errorf("no se pudo leer el código: %v", err)
+	}
+
+	// Quitar espacios y saltos de línea al inicio y al final
+	codigo = strings.TrimSpace(codigo)
+
+	// Validar que no esté vacío después de limpiar
+	if codigo == "" {
+		return nil, fmt.Errorf("el código de autorización está vacío")
 	}
 
 	// Intercambiar el código por un token real
