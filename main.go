@@ -13,6 +13,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"mail_manager/accounts"
@@ -34,6 +36,26 @@ const outlookTenantID = "consumers"
 const uideClientID = "TU_CLIENT_ID_AQUI"
 const uideClientSecret = "TU_CLIENT_SECRET_AQUI"
 const uideTenantID = "TU_TENANT_ID_UIDE_AQUI"
+
+// resolveCredentialsPath devuelve la ruta absoluta a credentials.json a
+// partir del directorio donde está el ejecutable. Esto evita el problema
+// de que la ruta relativa "credentials.json" se resuelva contra el
+// directorio de trabajo (que cambia según desde dónde se lance la app).
+func resolveCredentialsPath() string {
+	// Obtener la ruta absoluta del ejecutable que está corriendo
+	rutaExe, err := os.Executable()
+	if err != nil {
+		// Si por alguna razón falla, caer al nombre relativo como respaldo
+		fmt.Println("No se pudo obtener la ruta del ejecutable, usando nombre relativo:", err)
+		return gmailCredentialsFile
+	}
+
+	// El directorio que contiene el ejecutable
+	dirExe := filepath.Dir(rutaExe)
+
+	// Unir el directorio del ejecutable con el nombre del archivo de credenciales
+	return filepath.Join(dirExe, gmailCredentialsFile)
+}
 
 // detectProvider devuelve el tipo de proveedor según el dominio del email.
 // Reglas simples: @gmail.com -> gmail, @hotmail/@outlook -> outlook,
@@ -99,9 +121,13 @@ func agregarCuenta(listaCuentas []accounts.Account) ([]accounts.Account, account
 func buildProvider(cuenta accounts.Account) (providers.EmailProvider, error) {
 	// Caso Gmail: usar Google OAuth2 + GmailProvider
 	if cuenta.ProviderType == "gmail" {
-		// Configurar la autenticación de Google con credentials.json real
+		// Resolver la ruta absoluta a credentials.json (relativa al ejecutable)
+		// para que no falle según el directorio desde el que se lance la app.
+		rutaCreds := resolveCredentialsPath()
+
+		// Configurar la autenticación de Google con la ruta absoluta
 		cfg := auth.GoogleAuthConfig{
-			CredentialsFile: gmailCredentialsFile,
+			CredentialsFile: rutaCreds,
 			TokenFile:       cuenta.TokenFile,
 		}
 
